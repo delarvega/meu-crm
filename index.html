@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meu CRM - CRT Terminal</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=VT323&family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --green: #00ff00;
+            --green-dim: #00aa00;
+            --green-dark: #004400;
+            --white: #ffffff;
+            --orange: #ff8c00;
+            --orange-dim: #cc7000;
+            --black: #000000;
+            --gray: #333333;
+            --gray-light: #666666;
+            --scanline: rgba(0, 255, 0, 0.03);
+            --crt-glow: 0 0 10px rgba(0, 255, 0, 0.5), 0 0 20px rgba(0, 255, 0, 0.3);
+            --orange-glow: 0 0 10px rgba(255, 140, 0, 0.5), 0 0 20px rgba(255, 140, 0, 0.3);
+            --sidebar-width: 320px;
+            --nav-width: 80px;
+            --radius-xl: 32px;
+            --radius-lg: 24px;
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'VT323', monospace; }
+
+        body {
+            background-color: var(--black);
+            color: var(--green);
+            overflow: hidden;
+            display: flex;
+            height: 100vh;
+            position: relative;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: repeating-linear-gradient(
+                0deg,
+                transparent,
+                transparent 2px,
+                var(--scanline) 2px,
+                var(--scanline) 4px
+            );
+            pointer-events: none;
+            z-index: 9999;
+        }
+
+        body::after {
+            content: '';
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: radial-gradient(ellipse at center, transparent 50%, rgba(0, 0, 0, 0.4) 100%);
+            pointer-events: none;
+            z-index: 9998;
+        }
+
+        @keyframes flicker {
+            0% { opacity: 0.97; } 5% { opacity: 0.95; } 10% { opacity: 0.9; }
+            15% { opacity: 0.95; } 20% { opacity: 0.99; } 25% { opacity: 0.95; }
+            30% { opacity: 0.9; } 35% { opacity: 0.96; } 40% { opacity: 0.98; }
+            45% { opacity: 0.95; } 50% { opacity: 0.99; } 55% { opacity: 0.93; }
+            60% { opacity: 0.9; } 65% { opacity: 0.96; } 70% { opacity: 1; }
+            75% { opacity: 0.97; } 80% { opacity: 0.95; } 85% { opacity: 0.92; }
+            90% { opacity: 0.96; } 95% { opacity: 0.99; } 100% { opacity: 0.94; }
+        }
+
+        body { animation: flicker 0.15s infinite; }
+
+        .app-container { display: flex; width: 100%; height: 100%; padding: 12px; padding-bottom: 80px; gap: 12px; }
+
+        /* Sidebar Navigation */
+        .nav-sidebar {
+            width: var(--nav-width);
+            background: rgba(0, 10, 0, 0.5);
+            border: 2px solid var(--green-dark);
+            border-radius: var(--radius-xl);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 24px 0;
+            gap: 20px;
+        }
+
+        .logo {
+            width: 40px; height: 40px; background: var(--green);
+            border-radius: 12px; display: flex; align-items: center; justify-content: center;
+            margin-bottom: 20px; box-shadow: var(--crt-glow);
+        }
+        .logo svg { stroke: var(--black); }
+
+        .nav-item {
+            width: 48px; height: 48px; display: flex; align-items: center; justify-content: center;
+            color: var(--gray-light); border-radius: 16px; cursor: pointer; transition: var(--transition);
+            border: 1px solid transparent;
+        }
+        .nav-item:hover { color: var(--green); border-color: var(--green-dark); background: rgba(0, 255, 0, 0.05); }
+        .nav-item.active { color: var(--black); background: var(--green); border-color: var(--green); box-shadow: var(--crt-glow); }
+
+        /* Left Panel */
+        .data-sidebar {
+            width: var(--sidebar-width);
+            background: rgba(0, 10, 0, 0.3);
+            border: 2px solid var(--green-dark);
+            border-radius: var(--radius-xl);
+            display: flex; flex-direction: column; padding: 24px; overflow-y: auto;
+        }
+
+        .stats-grid { display: block; margin-bottom: 32px; }
+        .stat-card {
+            background: rgba(0, 20, 0, 0.3); border: 2px solid var(--green);
+            border-radius: 20px; padding: 16px; display: flex; flex-direction: column; gap: 8px;
+        }
+        .stat-value {
+            font-family: 'Press Start 2P', monospace; font-size: 18px;
+            color: var(--orange); text-shadow: var(--orange-glow);
+            margin-top: 10px; text-align: right;
+        }
+        .stat-label { font-size: 16px; color: var(--green-dim); }
+
+        .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; color: var(--green); }
+        .section-header h3 { font-family: 'Press Start 2P', monospace; font-size: 10px; text-shadow: var(--crt-glow); }
+
+        .search-box { position: relative; margin-bottom: 20px; }
+        .search-box input {
+            width: 100%; background: var(--black); border: 1px solid var(--green-dark);
+            border-radius: 16px; padding: 12px 12px 12px 40px; color: var(--green);
+            outline: none; font-size: 16px; font-family: 'VT323', monospace;
+        }
+        .search-box input:focus { border-color: var(--green); box-shadow: var(--crt-glow); }
+        .search-box input::placeholder { color: var(--gray-light); }
+        .search-box svg { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--green-dim); }
+
+        .contact-list { display: flex; flex-direction: column; gap: 12px; flex-grow: 1; }
+        .contact-card {
+            background: rgba(0, 10, 0, 0.5); border: 1px solid var(--green-dark);
+            border-radius: 24px; padding: 16px; cursor: pointer; transition: var(--transition);
+        }
+        .contact-card:hover { border-color: var(--green); box-shadow: inset 0 0 10px rgba(0, 255, 0, 0.1); transform: translateY(-2px); }
+        .contact-card.active { background: var(--green); color: var(--black); border-color: var(--green); }
+        .contact-top { display: flex; align-items: center; gap: 12px; }
+        .avatar { width: 44px; height: 44px; border-radius: 14px; object-fit: cover; background: var(--gray); border: 1px solid var(--green-dark); }
+        .contact-name { font-size: 16px; font-weight: 400; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+        /* Main View */
+        .main-view {
+            flex-grow: 1; background: rgba(0, 10, 0, 0.3);
+            border: 2px solid var(--green-dark); border-radius: var(--radius-xl);
+            display: flex; flex-direction: column; overflow: hidden; position: relative;
+        }
+
+        .main-header { padding: 32px; display: flex; justify-content: space-between; align-items: flex-start; }
+        .profile-hero { display: flex; gap: 24px; align-items: center; }
+        .profile-avatar-large {
+            width: 100px; height: 100px; border-radius: 32px; object-fit: cover;
+            box-shadow: var(--crt-glow); background: var(--gray);
+            border: 2px solid var(--green);
+        }
+        .profile-details h1 {
+            font-family: 'Press Start 2P', monospace; font-size: 16px;
+            color: var(--green); text-shadow: var(--crt-glow); margin-bottom: 8px; line-height: 1.5;
+        }
+        .profile-meta { color: var(--green-dim); font-size: 16px; display: flex; align-items: center; gap: 8px; }
+
+        .action-bar { padding: 0 32px 24px; display: flex; flex-wrap: wrap; gap: 12px; }
+        .action-btn {
+            font-family: 'Press Start 2P', monospace; font-size: 9px;
+            padding: 12px 20px; border-radius: 14px; cursor: pointer;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            transition: var(--transition); border: 2px solid var(--green); text-decoration: none;
+            background: transparent; color: var(--green); text-transform: uppercase;
+        }
+        .action-btn:hover { background: var(--green); color: var(--black); box-shadow: var(--crt-glow); }
+        .btn-whatsapp { background: #25D366; color: white; border-color: #25D366; }
+        .btn-whatsapp:hover { background: #1da851; box-shadow: 0 0 10px rgba(37, 211, 102, 0.5); }
+        .btn-call { background: #3b82f6; color: white; border-color: #3b82f6; }
+        .btn-call:hover { background: #2563eb; box-shadow: 0 0 10px rgba(59, 130, 246, 0.5); }
+        .btn-edit { background: transparent; color: var(--green); border: 2px solid var(--green-dark); }
+        .btn-delete { background: transparent; color: #ff4444; border: 2px solid #ff4444; }
+        .btn-delete:hover { background: #ff4444; color: var(--black); }
+        .btn-export { background: transparent; color: var(--orange); border: 2px solid var(--orange); }
+        .btn-export:hover { background: var(--orange); color: var(--black); box-shadow: var(--orange-glow); }
+
+        .content-area { flex-grow: 1; padding: 32px; overflow-y: auto; background: var(--black); }
+        .info-card {
+            background: rgba(0, 20, 0, 0.3); border: 2px solid var(--green-dark);
+            border-radius: 24px; padding: 24px; margin-bottom: 24px;
+        }
+        .info-card h4 {
+            font-family: 'Press Start 2P', monospace; font-size: 9px;
+            color: var(--orange); text-shadow: var(--orange-glow);
+            margin-bottom: 12px; text-transform: uppercase;
+        }
+        .info-card h4::before { content: '> '; color: var(--green); }
+        .info-text { font-size: 18px; line-height: 1.6; color: var(--green); white-space: pre-wrap; }
+
+        .quick-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px; margin-bottom: 24px; }
+        .stat-box {
+            background: rgba(0, 20, 0, 0.3); padding: 16px; border-radius: 20px;
+            border: 1px solid var(--green-dark);
+        }
+        .stat-box-label { font-size: 12px; color: var(--green-dim); text-transform: uppercase; margin-bottom: 4px; }
+        .stat-box-value { font-size: 18px; color: var(--green); overflow: hidden; text-overflow: ellipsis; }
+
+        /* Gallery */
+        .gallery-title {
+            font-family: 'Press Start 2P', monospace; font-size: 10px;
+            color: var(--green); text-shadow: var(--crt-glow); margin-bottom: 16px;
+        }
+        .gallery-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+        .gallery-img {
+            aspect-ratio: 1; border-radius: 16px; object-fit: cover;
+            background: var(--gray); cursor: pointer; transition: var(--transition);
+            border: 2px solid var(--green-dark); box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        }
+        .gallery-img:hover { transform: scale(1.05); z-index: 5; border-color: var(--green); box-shadow: var(--crt-glow); }
+
+        .location-filter {
+            width: 100%; background: var(--black); border: 1px solid var(--green-dark);
+            border-radius: 12px; padding: 10px 12px; color: var(--green-dim);
+            outline: none; font-size: 16px; font-family: 'VT323', monospace;
+            margin-bottom: 20px; appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2300aa00' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+            background-repeat: no-repeat; background-position: right 12px center; cursor: pointer;
+        }
+        .location-filter option { background: var(--black); color: var(--green); }
+        .location-filter:focus { border-color: var(--green); color: var(--green); box-shadow: var(--crt-glow); }
+
+        /* Modal */
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: none; align-items: center; justify-content: center; z-index: 100; padding: 20px; }
+        .modal {
+            background: var(--black); width: 100%; max-width: 550px; max-height: 90vh;
+            border-radius: var(--radius-xl); display: flex; flex-direction: column;
+            overflow: hidden; box-shadow: 0 0 30px rgba(0, 255, 0, 0.2);
+            border: 2px solid var(--green);
+        }
+        .modal-header {
+            padding: 24px 32px; border-bottom: 2px solid var(--green-dark);
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .modal-header h2 {
+            font-family: 'Press Start 2P', monospace; font-size: 12px;
+            color: var(--orange); text-shadow: var(--orange-glow);
+        }
+        .modal-content { padding: 32px; overflow-y: auto; flex-grow: 1; }
+        .modal-footer { padding: 24px 32px; border-top: 2px solid var(--green-dark); display: flex; gap: 12px; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        .form-group { margin-bottom: 16px; }
+        .form-group label {
+            display: block; font-size: 14px; color: var(--green-dim); margin-bottom: 6px;
+        }
+        .form-group label::before { content: '> '; color: var(--orange); }
+        .form-group input, .form-group textarea {
+            width: 100%; padding: 12px 16px; border-radius: 12px;
+            border: 1px solid var(--green-dark); outline: none; font-size: 16px;
+            transition: var(--transition); background: var(--black);
+            color: var(--green); font-family: 'VT323', monospace;
+        }
+        .form-group input:focus, .form-group textarea:focus { border-color: var(--green); box-shadow: var(--crt-glow); }
+        .form-group input::placeholder, .form-group textarea::placeholder { color: var(--gray-light); }
+
+        /* Print Layout (PDF) */
+        @media print {
+            body { background: white; overflow: visible; height: auto; display: block; color: black; animation: none; }
+            body::before, body::after { display: none; }
+            .nav-sidebar, .data-sidebar, .action-bar, .action-btn, #noSelection, .logo, .nav-item, .search-box, .section-header, .stat-card { display: none !important; }
+            .app-container { display: block; padding: 0; padding-bottom: 0; }
+            .main-view { display: block; border-radius: 0; background: transparent; overflow: visible; border: none; }
+            .main-header { padding: 0 0 20px; border-bottom: 2px solid #eee; }
+            .content-area { background: transparent; padding: 20px 0; }
+            .info-card, .stat-box { border: 1px solid #eee; box-shadow: none; }
+            .gallery-grid { grid-template-columns: repeat(4, 1fr); }
+            h1, h2, h3, h4 { color: black !important; text-shadow: none !important; }
+        }
+
+        /* Mobile Adjustments */
+        @media (max-width: 800px) {
+            .nav-sidebar { display: none; }
+            .data-sidebar { width: 100%; }
+            .main-view { display: none; }
+            .app-container.viewing-detail .data-sidebar { display: none; }
+            .app-container.viewing-detail .main-view { display: flex; }
+            .main-header { padding: 24px; flex-direction: column; gap: 16px; }
+            .action-bar { padding: 0 24px 24px; }
+            .profile-avatar-large { width: 80px; height: 80px; }
+            .gallery-grid { grid-template-columns: repeat(2, 1fr); }
+            .profile-details h1 { font-size: 12px; }
+        }
+
+        /* CRT Scrollbar */
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-track { background: var(--black); }
+        ::-webkit-scrollbar-thumb { background: var(--green-dark); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--green); box-shadow: var(--crt-glow); }
+
+        /* Gallery section in modal */
+        .modal-content label[style*="GALERIA"] { color: var(--orange) !important; text-shadow: var(--orange-glow) !important; }
+
+        /* Lock Screen Inline */
+        .lock-screen-inline {
+            display: none; flex-direction: column; align-items: center; justify-content: center;
+            height: 100%; gap: 24px; padding: 40px;
+        }
+        .lock-text {
+            font-family: 'Press Start 2P', monospace; font-size: 22px;
+            color: var(--green); text-shadow: var(--crt-glow);
+            animation: flicker 0.15s infinite;
+        }
+        .lock-input {
+            width: 260px; padding: 14px 18px; border-radius: 14px;
+            border: 2px solid var(--green-dark); background: var(--black);
+            color: var(--green); font-family: 'VT323', monospace; font-size: 18px;
+            text-align: center; outline: none; transition: var(--transition);
+        }
+        .lock-input:focus { border-color: var(--green); box-shadow: var(--crt-glow); }
+        .lock-input::placeholder { color: var(--gray-light); }
+        .lock-btn {
+            font-family: 'Press Start 2P', monospace; font-size: 10px;
+            padding: 14px 28px; border-radius: 14px; cursor: pointer;
+            border: 2px solid var(--green); background: transparent;
+            color: var(--green); transition: var(--transition);
+        }
+        .lock-btn:hover { background: var(--green); color: var(--black); box-shadow: var(--crt-glow); }
+        .lock-error {
+            font-family: 'VT323', monospace; font-size: 16px;
+            color: #ff4444; min-height: 20px;
+        }
+        .lock-cadeado {
+            width: 48px; height: 48px; display: flex; align-items: center; justify-content: center;
+            color: var(--gray-light); border-radius: 16px; cursor: pointer; transition: var(--transition);
+            border: 1px solid transparent;
+        }
+        .lock-cadeado:hover { color: var(--orange); border-color: var(--orange); background: rgba(255, 140, 0, 0.05); }
+        .lock-cadeado.ativo { color: var(--orange); border-color: var(--orange); background: rgba(255, 140, 0, 0.1); box-shadow: var(--orange-glow); }
+
+    </style>
+</head>
+<body>
+
+    <div class="app-container" id="app">
+        <!-- Sidebar Navigation -->
+        <nav class="nav-sidebar">
+            <div class="logo">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+            </div>
+            <div class="nav-item active" onclick="relockAll()" title="Trancar todos os contatos">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>
+            </div>
+            <div class="nav-item" onclick="window.print()">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect width="12" height="8" x="6" y="14"/></svg>
+            </div>
+            <div class="lock-cadeado" id="lockBtn" onclick="showUnlockScreen()" title="Desbloquear contatos ocultos">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            </div>
+            <div style="margin-top: auto;" title="Exportar TXT" class="nav-item" onclick="exportTxt()">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/><line x1="10" x2="8" y1="9" y2="9"/></svg>
+            </div>
+        </nav>
+
+        <!-- Left List -->
+        <aside class="data-sidebar">
+            <div class="section-header">
+                <h3>Lista Geral</h3>
+                <div onclick="openModal()" style="cursor: pointer; background: var(--green); color: #000; padding: 4px; border-radius: 8px;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M12 5v14M5 12h14"/></svg>
+                </div>
+            </div>
+
+            <div class="search-box">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                <input type="text" id="searchInput" placeholder="Filtrar por nome..." oninput="renderList()">
+            </div>
+
+            <select id="locationFilter" class="location-filter" onchange="renderList()">
+                <option value="">Todas as Localidades</option>
+            </select>
+
+            <div class="contact-list" id="contactList"></div>
+        </aside>
+
+        <!-- Details -->
+        <main class="main-view" id="mainView">
+            <div id="noSelection" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: var(--gray-light); padding: 40px; text-align: center;">
+                <p class="lock-text" style="font-size: 28px;">CRM OnLine</p>
+            </div>
+
+            <div id="lockScreenInline" style="display: none; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 24px; padding: 40px;">
+                <div class="lock-text">Desbloquear Contatos</div>
+                <input type="password" class="lock-input" id="lockPasswordInput" placeholder="Senha..." onkeydown="if(event.key==='Enter')tryUnlock()">
+                <button class="lock-btn" onclick="tryUnlock()">Desbloquear</button>
+                <div class="lock-error" id="lockErrorInline"></div>
+            </div>
+
+                <div id="contactDetails" style="display: none; height: 100%; flex-direction: column;">
+                <div style="padding: 12px 24px 0;">
+                    <button onclick="closeDetail()" class="action-btn btn-edit" style="background: transparent; color: var(--green); border: 2px solid var(--green-dark); padding: 8px 16px; font-size: 12px;">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg>
+                        Voltar para Lista
+                    </button>
+                </div>
+                <header class="main-header">
+                    <div class="profile-hero">
+                        <img id="detailAvatar" src="" class="profile-avatar-large">
+                        <div class="profile-details">
+                            <h1 id="detailName">Nome do Cliente</h1>
+                            <div class="profile-meta">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                                <span id="detailPhoneDisplay">00 00000-0000</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 8px;">
+                        <button onclick="editCurrent()" class="action-btn btn-edit"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg></button>
+                        <button onclick="deleteCurrent()" class="action-btn btn-delete"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg></button>
+                        <button onclick="closeDetail()" class="action-btn btn-edit" id="backBtn" style="display: none;">Voltar</button>
+                    </div>
+                </header>
+
+                <div class="action-bar">
+                    <a id="waLink" href="#" target="_blank" class="action-btn btn-whatsapp">Abrir WhatsApp</a>
+                    <a id="callLink" href="#" class="action-btn btn-call">Ligar Agora</a>
+                    <button onclick="window.print()" class="action-btn btn-export">Gerar PDF</button>
+                </div>
+
+                <div class="content-area">
+                    <div class="quick-grid">
+                        <div class="stat-box">
+                            <div class="stat-box-label">Valor</div>
+                            <div class="stat-box-value" id="detailValue">$ 0</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-box-label">Localização</div>
+                            <div class="stat-box-value" id="detailLocal">---</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-box-label">Website</div>
+                            <div class="stat-box-value"><a id="detailSite" href="#" target="_blank" style="color: var(--orange); text-decoration: none;">---</a></div>
+                        </div>
+                    </div>
+
+                    <div class="info-card">
+                        <h4>Informações & Notas</h4>
+                        <div class="info-text" id="detailInfo">Nenhuma informação.</div>
+                    </div>
+
+                    <h4 class="gallery-title">Galeria de Fotos</h4>
+                    <div class="gallery-grid" id="detailGallery">
+                        <!-- Images here -->
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal Form -->
+    <div class="modal-overlay" id="modalOverlay">
+        <form class="modal" id="contactForm">
+            <div class="modal-header">
+                <h2 id="modalTitle">Cadastrar</h2>
+                <div onclick="closeModal()" style="cursor: pointer;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg></div>
+            </div>
+            <div class="modal-content">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Nome</label>
+                        <input type="text" id="formName" placeholder="Nome do contato">
+                    </div>
+                    <div class="form-group">
+                        <label>WhatsApp / Tel</label>
+                        <input type="text" id="formPhone" placeholder="11999998888">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Valor</label>
+                        <input type="number" id="formValue" placeholder="0">
+                    </div>
+                    <div class="form-group">
+                        <label>Localização</label>
+                        <input type="text" id="formLocal" placeholder="Cidade, Estado">
+                    </div>
+                </div>                    <div class="form-group">
+                    <label>Link Website / Site</label>
+                    <input type="text" id="formSite" placeholder="www.meusite.com">
+                </div>
+                <div class="form-group">
+                    <label>URL da Imagem do Avatar</label>
+                    <input type="text" id="formAvatar" placeholder="https://exemplo.com/avatar.jpg">
+                </div>
+                <div style="border: 2px solid var(--green-dark); border-radius: 12px; padding: 16px; margin-bottom: 20px;">
+                    <label style="font-size: 10px; font-weight: 800; color: var(--orange); margin-bottom: 12px; display: block; text-shadow: var(--orange-glow);">GALERIA DE FOTOS (LINKS URL)</label>
+                    <div class="form-row">
+                        <div class="form-group"><label>Foto 1</label><input type="text" id="img1"></div>
+                        <div class="form-group"><label>Foto 2</label><input type="text" id="img2"></div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group"><label>Foto 3</label><input type="text" id="img3"></div>
+                        <div class="form-group"><label>Foto 4</label><input type="text" id="img4"></div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Caixa de Informações</label>
+                    <textarea id="formInfo" rows="4" placeholder="Detalhes do cliente..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" onclick="closeModal()" class="action-btn btn-edit" style="flex: 1;">Cancelar</button>
+                <button type="submit" class="action-btn" style="flex: 1; background: var(--green); color: #000; font-weight: 700;">Salvar Contato</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Free Text Parser -->
+    <div style="position: fixed; bottom: 0; left: 0; right: 0; background: #000; border-top: 2px solid var(--green-dark); padding: 12px 16px; z-index: 90; display: flex; gap: 8px; align-items: flex-end;" id="freeTextBar">
+        <textarea id="freeTextInput" rows="2" placeholder="Colar texto para extrair contatos..." style="flex: 1; background: #000; border: 1px solid var(--green-dark); color: var(--green); font-family: 'VT323', monospace; font-size: 14px; padding: 8px; border-radius: 8px; resize: none;"></textarea>
+        <button onclick="parseFreeTextContacts()" style="background: var(--green); color: #000; border: none; padding: 8px 14px; border-radius: 8px; font-family: 'Press Start 2P', monospace; font-size: 9px; font-weight: 700; cursor: pointer; white-space: nowrap;">EXTRAIR</button>
+    </div>
+
+    <script>
+
+        // Store
+        const STORAGE_KEY = 'crm_final_v2';
+        const DEFAULT_AVATAR = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="150" height="150" viewBox="0 0 150 150"><rect fill="#000000" width="150" height="150" rx="20" stroke="#004400" stroke-width="2"/><circle cx="75" cy="55" r="25" fill="#00ff00" opacity="0.3"/><ellipse cx="75" cy="120" rx="40" ry="30" fill="#00ff00" opacity="0.3"/><text x="75" y="80" text-anchor="middle" fill="#00ff00" font-size="14" font-family="monospace">CRM</text></svg>');
+
+        // Lock System
+        let crmUnlocked = false;
+        const CRM_PASSWORD = '007171';
+        function hasHiddenContacts() {
+            return contacts.some(c => c.hidden);
+        }
+        function blockCurrentContact() {
+            if (!selectedId) return;
+            if (!confirm('Bloquear este contato?')) return;
+            const c = contacts.find(c => c.id === selectedId);
+            c.hidden = true;
+            save();
+            selectedId = null;
+            document.getElementById('contactDetails').style.display = 'none';
+            document.getElementById('noSelection').style.display = 'flex';
+            renderList();
+        }
+        function showUnlockScreen() {
+            if (!hasHiddenContacts()) return;
+            document.getElementById('noSelection').style.display = 'none';
+            document.getElementById('contactDetails').style.display = 'none';
+            document.getElementById('lockScreenInline').style.display = 'flex';
+            document.getElementById('lockPasswordInput').value = '';
+            document.getElementById('lockErrorInline').textContent = '';
+            document.getElementById('lockPasswordInput').focus();
+        }
+        function tryUnlock() {
+            const input = document.getElementById('lockPasswordInput').value;
+            if (input === CRM_PASSWORD) {
+                crmUnlocked = true;
+                document.getElementById('lockScreenInline').style.display = 'none';
+                document.getElementById('noSelection').style.display = 'flex';
+                document.getElementById('lockErrorInline').textContent = '';
+                document.getElementById('lockPasswordInput').value = '';
+                renderList();
+            } else {
+                document.getElementById('lockErrorInline').textContent = 'Senha incorreta';
+            }
+        }
+        function relockAll() {
+            crmUnlocked = false;
+            selectedId = null;
+            document.getElementById('contactDetails').style.display = 'none';
+            document.getElementById('lockScreenInline').style.display = 'none';
+            document.getElementById('noSelection').style.display = 'flex';
+            document.getElementById('lockPasswordInput').value = '';
+            document.getElementById('lockErrorInline').textContent = '';
+            renderList();
+        }
+
+        function getAvatarFromUrl(url) {
+            if (!url || url.trim() === '') return DEFAULT_AVATAR;
+            return url.trim();
+        }
+
+        let contacts = JSON.parse(localStorage.getItem(STORAGE_KEY)) || null;
+        if (!contacts || contacts.length === 0) {
+            contacts = [
+                {
+                    id: '1', name: 'Cliente de Exemplo', whatsapp: '11999998888', valor: '5000', local: 'Rio de Janeiro', site: 'google.com', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=400&fit=crop',
+                    info: 'Este é um exemplo de contato.', images: ['', '', '', '']
+                }
+            ];
+        }
+        let selectedId = null;
+        let isEditing = false;
+
+        function save() { 
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(contacts));
+            updateLocationDropdown();
+        }
+
+        function updateLocationDropdown() {
+            const dropdown = document.getElementById('locationFilter');
+            const selected = dropdown.value;
+            const locations = [...new Set(contacts.map(c => c.local).filter(l => l && l.trim() !== ''))].sort();
+            
+            dropdown.innerHTML = '<option value="">Todas as Localidades</option>' + 
+                locations.map(l => `<option value="${l}" ${l === selected ? 'selected' : ''}>${l}</option>`).join('');
+        }
+
+        function renderList() {
+            const q = document.getElementById('searchInput').value.toLowerCase();
+            const loc = document.getElementById('locationFilter').value;
+
+            const list = contacts.filter(c => {
+                if (c.hidden && !crmUnlocked) return false;
+                const matchesName = c.name.toLowerCase().includes(q);
+                const matchesLoc = loc === "" || c.local === loc;
+                return matchesName && matchesLoc;
+            });
+
+            document.getElementById('contactList').innerHTML = list.map(c => `
+                <div class="contact-card ${selectedId === c.id ? 'active' : ''}" onclick="selectContact('${c.id}')">
+                    <div class="contact-top">
+                        <div style="width: 44px; height: 44px; border-radius: 14px; background: #000; border: 1px solid var(--green-dark); display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0;">
+                            <img src="${c.avatar || DEFAULT_AVATAR}" class="avatar" onerror="this.onerror=null; this.src='${DEFAULT_AVATAR}';">
+                        </div>
+                        <div class="contact-name">${c.name}</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function selectContact(id) {
+            selectedId = id;
+            const c = contacts.find(c => c.id === id);
+            document.getElementById('noSelection').style.display = 'none';
+            document.getElementById('contactDetails').style.display = 'flex';
+
+            document.getElementById('detailAvatar').src = c.avatar || DEFAULT_AVATAR;
+            document.getElementById('detailAvatar').onerror = function() {
+                this.onerror = null;
+                this.src = DEFAULT_AVATAR;
+            };
+
+            document.getElementById('detailName').innerText = c.name;
+            document.getElementById('detailPhoneDisplay').innerText = c.whatsapp;
+            document.getElementById('detailInfo').innerText = c.info || 'Sem informações.';
+            document.getElementById('detailValue').innerText = '$ ' + (parseFloat(c.valor) || 0).toLocaleString('pt-BR');
+            document.getElementById('detailLocal').innerText = c.local || '---';
+            
+            const site = document.getElementById('detailSite');
+            if(c.site) { site.innerText = c.site; site.href = c.site.startsWith('http') ? c.site : 'https://'+c.site; }
+            else { site.innerText = '---'; site.href = '#'; }
+
+            const cleanPhone = c.whatsapp.replace(/\D/g, '');
+            document.getElementById('waLink').href = `https://wa.me/${cleanPhone}`;
+            document.getElementById('callLink').href = `tel:${cleanPhone}`;
+
+            const gal = document.getElementById('detailGallery');
+            const GAL_PLACEHOLDER = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200"><rect fill="#000000" width="200" height="200" rx="16" stroke="#004400" stroke-width="2"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="#004400" font-size="14" font-family="monospace">Sem Foto</text></svg>');
+            gal.innerHTML = (c.images || ['', '', '', '']).map(img => img ? `<img src="${img}" class="gallery-img" onerror="this.onerror=null; this.src='${GAL_PLACEHOLDER}';" crossorigin="anonymous">` : `<img src="${GAL_PLACEHOLDER}" class="gallery-img">`).join('');
+
+            if (window.innerWidth <= 800) document.getElementById('app').classList.add('viewing-detail');
+            renderList();
+        }
+
+        function openModal() {
+            isEditing = false;
+            document.getElementById('modalTitle').innerText = 'Cadastrar Contato';
+            document.getElementById('contactForm').reset();
+            document.getElementById('formAvatar').value = '';
+            document.getElementById('modalOverlay').style.display = 'flex';
+        }
+
+        function closeModal() {
+            document.getElementById('modalOverlay').style.display = 'none';
+        }
+
+        function editCurrent() {
+            const c = contacts.find(c => c.id === selectedId);
+            isEditing = true;
+            document.getElementById('modalTitle').innerText = 'Editar Contato';
+            document.getElementById('formName').value = c.name;
+            document.getElementById('formPhone').value = c.whatsapp;
+            document.getElementById('formValue').value = c.valor;
+            document.getElementById('formLocal').value = c.local;
+            document.getElementById('formSite').value = c.site;
+            document.getElementById('formAvatar').value = c.avatar || '';
+            document.getElementById('formInfo').value = c.info;
+            document.getElementById('img1').value = c.images[0] || '';
+            document.getElementById('img2').value = c.images[1] || '';
+            document.getElementById('img3').value = c.images[2] || '';
+            document.getElementById('img4').value = c.images[3] || '';
+            document.getElementById('modalOverlay').style.display = 'flex';
+        }
+
+        function deleteCurrent() {
+            if(confirm('Excluir este contato?')) {
+                contacts = contacts.filter(c => c.id !== selectedId);
+                selectedId = null;
+                document.getElementById('contactDetails').style.display = 'none';
+                document.getElementById('noSelection').style.display = 'flex';
+                save(); renderList();
+            }
+        }
+
+        function closeDetail() { 
+            document.getElementById('app').classList.remove('viewing-detail'); 
+            document.getElementById('contactDetails').style.display = 'none';
+            document.getElementById('noSelection').style.display = 'flex';
+            selectedId = null; 
+            renderList(); 
+        }
+
+        function exportTxt() {
+            let txt = "RELATÓRIO DE CONTATOS\n\n";
+            contacts.forEach(c => {
+                txt += `NOME: ${c.name}\nWHATSAPP: ${c.whatsapp}\nVALOR: $ ${c.valor}\nLOCAL: ${c.local}\nSITE: ${c.site}\nINFO: ${c.info}\n`;
+                txt += "------------------------------------------\n";
+            });
+            const blob = new Blob([txt], {type: "text/plain"});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a'); a.href = url; a.download = "crm_contatos.txt"; a.click();
+        }
+
+        document.getElementById('contactForm').onsubmit = (e) => {
+            e.preventDefault();
+            const avatarUrl = document.getElementById('formAvatar').value;
+            const data = {
+                name: document.getElementById('formName').value,
+                whatsapp: document.getElementById('formPhone').value,
+                valor: document.getElementById('formValue').value,
+                local: document.getElementById('formLocal').value,
+                site: document.getElementById('formSite').value,
+                avatar: getAvatarFromUrl(avatarUrl),
+                info: document.getElementById('formInfo').value,
+                images: [
+                    document.getElementById('img1').value,
+                    document.getElementById('img2').value,
+                    document.getElementById('img3').value,
+                    document.getElementById('img4').value
+                ]
+            };
+            if(isEditing) {
+                const idx = contacts.findIndex(c => c.id === selectedId);
+                contacts[idx] = { ...contacts[idx], ...data };
+            } else {
+                const newC = { ...data, id: Date.now().toString() };
+                contacts.unshift(newC);
+                selectedId = newC.id;
+            }
+            save(); closeModal(); renderList(); selectContact(selectedId);
+        };
+
+        updateLocationDropdown();
+        renderList();
+
+        // --- Free Text Parser ---
+        function parseFreeTextContacts() {
+            const raw = document.getElementById('freeTextInput').value;
+            if (!raw.trim()) return alert('Cole um texto primeiro.');
+
+            const blocks = raw.split(/\n\s*\n|\n- /);
+            let added = 0;
+
+            blocks.forEach(block => {
+                const c = extractContactFromText(block);
+                if (c && c.name) {
+                    c.id = Date.now().toString() + Math.random().toString(36).slice(2,6);
+                    c.avatar = c.avatar || DEFAULT_AVATAR;
+                    c.images = ['', '', '', ''];
+                    c.info = c.info || '';
+                    contacts.unshift(c);
+                    added++;
+                }
+            });
+
+            document.getElementById('freeTextInput').value = '';
+
+            if (added > 0) {
+                save();
+                renderList();
+                alert(added + ' contato(s) extraido(s) com sucesso!');
+            } else {
+                alert('Nenhum contato encontrado no texto.');
+            }
+        }
+
+        function extractContactFromText(text) {
+            const t = text.trim();
+            if (!t) return null;
+
+            const result = { name: '', local: '', site: '', whatsapp: '', info: '', valor: '' };
+
+            // URL
+            const urlMatch = t.match(/https?:\/\/\S+|www\.\S+/);
+            if (urlMatch) result.site = urlMatch[0];
+
+            // Phone (padrão BR: 11 9xxxx-xxxx ou 11999998888)
+            const phoneMatch = t.match(/(?:\d{2}\s?)?9?\d{4}[-.\s]?\d{4}/);
+            if (phoneMatch) result.whatsapp = phoneMatch[0].replace(/\s/g, '');
+
+            // Localização (palavras-chave)
+            const locPatterns = ['alto da xv', 'rodoviária', 'rodoviaria', 'praça', 'centro', 'avenida', 'bairro', 'vila', 'rua', 'vip', 'zona'];
+            const lower = t.toLowerCase();
+            for (const p of locPatterns) {
+                const idx = lower.indexOf(p);
+                if (idx !== -1) {
+                    result.local = t.substring(Math.max(0, idx - 20), idx + 30).trim();
+                    break;
+                }
+            }
+
+            // Nome: primeira linha ou primeiras palavras significativas
+            const lines = t.split('\n');
+            const firstLine = lines[0].trim();
+            const nameClean = firstLine
+                .replace(/https?:\/\/\S+/, '')
+                .replace(/,.*$/, '')
+                .trim();
+            result.name = nameClean.substring(0, 30) || 'Contato Extraído';
+
+            // Info: todas as linhas (menos a primeira e URLs)
+            const infoLines = lines.slice(1)
+                .map(l => l.trim())
+                .filter(l => l && !l.match(/^https?:\/\//));
+            result.info = infoLines.join('\n');
+
+            return result.name ? result : null;
+        }
+    </script>
+</body>
+</html>
