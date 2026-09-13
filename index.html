@@ -639,6 +639,7 @@
             selectedId = null;
             document.getElementById('contactDetails').style.display = 'none';
             document.getElementById('noSelection').style.display = 'flex';
+            document.getElementById('app').classList.remove('viewing-detail');
             renderList();
         }
         function onLockClick() {
@@ -656,6 +657,7 @@
             document.getElementById('lockPasswordInput').value = '';
             document.getElementById('lockErrorInline').textContent = '';
             document.getElementById('lockPasswordInput').focus();
+            if (window.innerWidth <= 800) document.getElementById('app').classList.add('viewing-detail');
         }
         function tryUnlock() {
             const input = document.getElementById('lockPasswordInput').value;
@@ -665,6 +667,7 @@
                 document.getElementById('noSelection').style.display = 'flex';
                 document.getElementById('lockErrorInline').textContent = '';
                 document.getElementById('lockPasswordInput').value = '';
+                document.getElementById('app').classList.remove('viewing-detail');
                 renderList();
             } else {
                 document.getElementById('lockErrorInline').textContent = 'Senha incorreta';
@@ -678,6 +681,7 @@
             document.getElementById('noSelection').style.display = 'flex';
             document.getElementById('lockPasswordInput').value = '';
             document.getElementById('lockErrorInline').textContent = '';
+            document.getElementById('app').classList.remove('viewing-detail');
             renderList();
         }
 
