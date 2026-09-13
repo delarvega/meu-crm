@@ -616,7 +616,7 @@
         </div>
     </nav>
 
-    <input type="file" id="importFileInput" accept=".json" style="display:none" onchange="importJson(event)">
+    <input type="file" id="importFileInput" accept=".json,.txt" style="display:none" onchange="importJson(event)">
 
     <script>
 
@@ -845,7 +845,8 @@
             const reader = new FileReader();
             reader.onload = (e) => {
                 try {
-                    const imported = JSON.parse(e.target.result);
+                    let content = e.target.result.replace(/^\uFEFF/, '').trim();
+                    const imported = JSON.parse(content);
                     if (!Array.isArray(imported)) throw new Error();
                     const confirmReplace = confirm(
                         'Encontrados ' + imported.length + ' contatos.\n\n' +
@@ -863,10 +864,10 @@
                     renderList();
                     alert(imported.length + ' contatos importados com sucesso!');
                 } catch(err) {
-                    alert('Arquivo JSON inválido ou corrompido.');
+                    alert('Arquivo JSON inválido ou corrompido.\nTente renomear o ficheiro para .json');
                 }
             };
-            reader.readAsText(file);
+            reader.readAsText(file, 'UTF-8');
             event.target.value = '';
         }
 
