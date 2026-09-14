@@ -704,7 +704,10 @@
         function sanitizeUrl(url) {
             if (!url || typeof url !== 'string') return '';
             return url
-                .replace(/[\u200B\u200C\u200D\uFEFF\u00A0]/g, '')
+                .replace(/[\u200B\u200C\u200D\u200E\u200F\u2028\u2029\u202A\u202B\u202C\u202D\u202E\u2060\u2061\u2062\u2063\u2064\uFEFF]/g, '')
+                .replace(/[\u00A0\u2000-\u200A\u202F\u205F\u3000]/g, ' ')
+                .replace(/[\u2018\u2019\u201A]/g, "'")
+                .replace(/[\u201C\u201D\u201E]/g, '"')
                 .replace(/\s+/g, ' ')
                 .trim();
         }
@@ -756,7 +759,7 @@
                 <div class="contact-card ${selectedId === c.id ? 'active' : ''}" onclick="selectContact('${c.id}')">
                     <div class="contact-top">
                         <div style="width: 44px; height: 44px; border-radius: 14px; background: #000; border: 1px solid var(--green-dark); display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0;">
-                            <img src="${c.avatar || DEFAULT_AVATAR}" class="avatar" onerror="this.onerror=null; this.src='${DEFAULT_AVATAR}';">
+                            <img src="${c.avatar || DEFAULT_AVATAR}" class="avatar" onerror="console.error('Avatar failed:', this.src); this.onerror=null; this.src='${DEFAULT_AVATAR}';">
                         </div>
                         <div class="contact-name">${c.name}</div>
                     </div>
@@ -772,6 +775,7 @@
 
             document.getElementById('detailAvatar').src = c.avatar || DEFAULT_AVATAR;
             document.getElementById('detailAvatar').onerror = function() {
+                console.error('Detail avatar failed:', this.src);
                 this.onerror = null;
                 this.src = DEFAULT_AVATAR;
             };
@@ -792,7 +796,7 @@
 
             const gal = document.getElementById('detailGallery');
             const GAL_PLACEHOLDER = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200"><rect fill="#000000" width="200" height="200" rx="16" stroke="#004400" stroke-width="2"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="#004400" font-size="14" font-family="monospace">Sem Foto</text></svg>');
-            gal.innerHTML = (c.images || ['', '', '', '']).map(img => img ? `<img src="${img}" class="gallery-img" onerror="this.onerror=null; this.src='${GAL_PLACEHOLDER}';" crossorigin="anonymous">` : `<img src="${GAL_PLACEHOLDER}" class="gallery-img">`).join('');
+            gal.innerHTML = (c.images || ['', '', '', '']).map(img => img ? `<img src="${img}" class="gallery-img" onerror="console.error('Gallery image failed:', this.src); this.onerror=null; this.src='${GAL_PLACEHOLDER}';">` : `<img src="${GAL_PLACEHOLDER}" class="gallery-img">`).join('');
 
             if (window.innerWidth <= 800) document.getElementById('app').classList.add('viewing-detail');
             renderList();
