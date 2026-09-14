@@ -563,17 +563,17 @@
                 </div>
                 <div class="form-group">
                     <label>URL da Imagem do Avatar</label>
-                    <input type="text" id="formAvatar" placeholder="https://exemplo.com/avatar.jpg">
+                    <input type="text" id="formAvatar" placeholder="https://exemplo.com/avatar.jpg" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false" autocomplete="off">
                 </div>
                 <div style="border: 2px solid var(--green-dark); border-radius: 12px; padding: 16px; margin-bottom: 20px;">
                     <label style="font-size: 10px; font-weight: 800; color: var(--orange); margin-bottom: 12px; display: block; text-shadow: var(--orange-glow);">GALERIA DE FOTOS (LINKS URL)</label>
                     <div class="form-row">
-                        <div class="form-group"><label>Foto 1</label><input type="text" id="img1"></div>
-                        <div class="form-group"><label>Foto 2</label><input type="text" id="img2"></div>
+                        <div class="form-group"><label>Foto 1</label><input type="text" id="img1" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false" autocomplete="off"></div>
+                        <div class="form-group"><label>Foto 2</label><input type="text" id="img2" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false" autocomplete="off"></div>
                     </div>
                     <div class="form-row">
-                        <div class="form-group"><label>Foto 3</label><input type="text" id="img3"></div>
-                        <div class="form-group"><label>Foto 4</label><input type="text" id="img4"></div>
+                        <div class="form-group"><label>Foto 3</label><input type="text" id="img3" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false" autocomplete="off"></div>
+                        <div class="form-group"><label>Foto 4</label><input type="text" id="img4" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false" autocomplete="off"></div>
                     </div>
                 </div>
                 <div class="form-group">
@@ -701,9 +701,18 @@
             renderList();
         }
 
+        function sanitizeUrl(url) {
+            if (!url || typeof url !== 'string') return '';
+            return url
+                .replace(/[\u200B\u200C\u200D\uFEFF\u00A0]/g, '')
+                .replace(/\s+/g, ' ')
+                .trim();
+        }
+
         function getAvatarFromUrl(url) {
-            if (!url || url.trim() === '') return DEFAULT_AVATAR;
-            return url.trim();
+            const cleaned = sanitizeUrl(url);
+            if (!cleaned) return DEFAULT_AVATAR;
+            return cleaned;
         }
 
         let contacts = JSON.parse(localStorage.getItem(STORAGE_KEY)) || null;
@@ -903,10 +912,10 @@
                 avatar: getAvatarFromUrl(avatarUrl),
                 info: document.getElementById('formInfo').value,
                 images: [
-                    document.getElementById('img1').value,
-                    document.getElementById('img2').value,
-                    document.getElementById('img3').value,
-                    document.getElementById('img4').value
+                    sanitizeUrl(document.getElementById('img1').value),
+                    sanitizeUrl(document.getElementById('img2').value),
+                    sanitizeUrl(document.getElementById('img3').value),
+                    sanitizeUrl(document.getElementById('img4').value)
                 ]
             };
             if(isEditing) {
