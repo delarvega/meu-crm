@@ -899,13 +899,19 @@
                     let content = e.target.result.replace(/^\uFEFF/, '').trim();
                     const imported = JSON.parse(content);
                     if (!Array.isArray(imported)) throw new Error();
-                    const confirmReplace = confirm(
+                    const confirmAdd = confirm(
                         'Encontrados ' + imported.length + ' contatos.\n\n' +
-                        'OK = Substituir todos os contatos atuais\n' +
+                        'OK = Adicionar aos contatos atuais (' + contacts.length + ' existentes)\n' +
                         'Cancelar = Abortar'
                     );
-                    if (!confirmReplace) return;
-                    contacts = imported;
+                    if (!confirmAdd) return;
+                    imported.forEach(c => {
+                        if (!c.id) c.id = Date.now().toString() + Math.random().toString(36).slice(2,6);
+                        if (!c.images) c.images = ['', '', '', ''];
+                        if (!c.info) c.info = '';
+                        if (!c.avatar) c.avatar = '';
+                    });
+                    contacts = contacts.concat(imported);
                     crmUnlocked = false;
                     selectedId = null;
                     save();
@@ -913,7 +919,7 @@
                     document.getElementById('lockScreenInline').style.display = 'none';
                     document.getElementById('noSelection').style.display = 'flex';
                     renderList();
-                    alert(imported.length + ' contatos importados com sucesso!');
+                    alert(imported.length + ' contato(s) adicionado(s)! Total: ' + contacts.length);
                 } catch(err) {
                     alert('Arquivo JSON inválido ou corrompido.\nTente renomear o ficheiro para .json');
                 }
