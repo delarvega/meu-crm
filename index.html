@@ -563,17 +563,17 @@
                 </div>
                 <div class="form-group">
                     <label>URL da Imagem do Avatar</label>
-                    <input type="text" id="formAvatar" placeholder="https://exemplo.com/avatar.jpg" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false" autocomplete="off">
+                    <input type="url" id="formAvatar" placeholder="https://exemplo.com/avatar.jpg" autocapitalize="off" autocorrect="off" spellcheck="false" autocomplete="off" oninput="liveCapture()">
                 </div>
                 <div style="border: 2px solid var(--green-dark); border-radius: 12px; padding: 16px; margin-bottom: 20px;">
                     <label style="font-size: 10px; font-weight: 800; color: var(--orange); margin-bottom: 12px; display: block; text-shadow: var(--orange-glow);">GALERIA DE FOTOS (LINKS URL)</label>
                     <div class="form-row">
-                        <div class="form-group"><label>Foto 1</label><input type="text" id="img1" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false" autocomplete="off"></div>
-                        <div class="form-group"><label>Foto 2</label><input type="text" id="img2" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false" autocomplete="off"></div>
+                        <div class="form-group"><label>Foto 1</label><input type="url" id="img1" autocapitalize="off" autocorrect="off" spellcheck="false" autocomplete="off" oninput="liveCapture()"></div>
+                        <div class="form-group"><label>Foto 2</label><input type="url" id="img2" autocapitalize="off" autocorrect="off" spellcheck="false" autocomplete="off" oninput="liveCapture()"></div>
                     </div>
                     <div class="form-row">
-                        <div class="form-group"><label>Foto 3</label><input type="text" id="img3" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false" autocomplete="off"></div>
-                        <div class="form-group"><label>Foto 4</label><input type="text" id="img4" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false" autocomplete="off"></div>
+                        <div class="form-group"><label>Foto 3</label><input type="url" id="img3" autocapitalize="off" autocorrect="off" spellcheck="false" autocomplete="off" oninput="liveCapture()"></div>
+                        <div class="form-group"><label>Foto 4</label><input type="url" id="img4" autocapitalize="off" autocorrect="off" spellcheck="false" autocomplete="off" oninput="liveCapture()"></div>
                     </div>
                 </div>
                 <div class="form-group">
@@ -730,6 +730,16 @@
         let selectedId = null;
         let isEditing = false;
 
+        // Live capture para mobile - salva valores em tempo real
+        let liveForm = { avatar: '', img1: '', img2: '', img3: '', img4: '' };
+        function liveCapture() {
+            liveForm.avatar = document.getElementById('formAvatar').value;
+            liveForm.img1 = document.getElementById('img1').value;
+            liveForm.img2 = document.getElementById('img2').value;
+            liveForm.img3 = document.getElementById('img3').value;
+            liveForm.img4 = document.getElementById('img4').value;
+        }
+
         function save() { 
             localStorage.setItem(STORAGE_KEY, JSON.stringify(contacts));
             updateLocationDropdown();
@@ -807,6 +817,7 @@
             document.getElementById('modalTitle').innerText = 'Cadastrar Contato';
             document.getElementById('contactForm').reset();
             document.getElementById('formAvatar').value = '';
+            liveForm = { avatar: '', img1: '', img2: '', img3: '', img4: '' };
             document.getElementById('modalOverlay').style.display = 'flex';
         }
 
@@ -829,6 +840,13 @@
             document.getElementById('img2').value = c.images[1] || '';
             document.getElementById('img3').value = c.images[2] || '';
             document.getElementById('img4').value = c.images[3] || '';
+            liveForm = {
+                avatar: c.avatar || '',
+                img1: c.images[0] || '',
+                img2: c.images[1] || '',
+                img3: c.images[2] || '',
+                img4: c.images[3] || ''
+            };
             document.getElementById('modalOverlay').style.display = 'flex';
         }
 
@@ -906,7 +924,8 @@
 
         document.getElementById('contactForm').onsubmit = (e) => {
             e.preventDefault();
-            const avatarUrl = document.getElementById('formAvatar').value;
+            liveCapture();
+            const avatarUrl = liveForm.avatar;
             const data = {
                 name: document.getElementById('formName').value,
                 whatsapp: document.getElementById('formPhone').value,
@@ -916,10 +935,10 @@
                 avatar: getAvatarFromUrl(avatarUrl),
                 info: document.getElementById('formInfo').value,
                 images: [
-                    sanitizeUrl(document.getElementById('img1').value),
-                    sanitizeUrl(document.getElementById('img2').value),
-                    sanitizeUrl(document.getElementById('img3').value),
-                    sanitizeUrl(document.getElementById('img4').value)
+                    sanitizeUrl(liveForm.img1),
+                    sanitizeUrl(liveForm.img2),
+                    sanitizeUrl(liveForm.img3),
+                    sanitizeUrl(liveForm.img4)
                 ]
             };
             if(isEditing) {
