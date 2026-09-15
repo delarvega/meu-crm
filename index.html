@@ -563,17 +563,17 @@
                 </div>
                 <div class="form-group">
                     <label>URL da Imagem do Avatar</label>
-                    <input type="url" id="formAvatar" placeholder="https://exemplo.com/avatar.jpg" autocapitalize="off" autocorrect="off" spellcheck="false" autocomplete="off" oninput="liveCapture()">
+                    <input type="text" id="formAvatar" placeholder="https://exemplo.com/avatar.jpg" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false" autocomplete="off" oninput="liveCapture()">
                 </div>
                 <div style="border: 2px solid var(--green-dark); border-radius: 12px; padding: 16px; margin-bottom: 20px;">
                     <label style="font-size: 10px; font-weight: 800; color: var(--orange); margin-bottom: 12px; display: block; text-shadow: var(--orange-glow);">GALERIA DE FOTOS (LINKS URL)</label>
                     <div class="form-row">
-                        <div class="form-group"><label>Foto 1</label><input type="url" id="img1" autocapitalize="off" autocorrect="off" spellcheck="false" autocomplete="off" oninput="liveCapture()"></div>
-                        <div class="form-group"><label>Foto 2</label><input type="url" id="img2" autocapitalize="off" autocorrect="off" spellcheck="false" autocomplete="off" oninput="liveCapture()"></div>
+                        <div class="form-group"><label>Foto 1</label><input type="text" id="img1" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false" autocomplete="off" oninput="liveCapture()"></div>
+                        <div class="form-group"><label>Foto 2</label><input type="text" id="img2" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false" autocomplete="off" oninput="liveCapture()"></div>
                     </div>
                     <div class="form-row">
-                        <div class="form-group"><label>Foto 3</label><input type="url" id="img3" autocapitalize="off" autocorrect="off" spellcheck="false" autocomplete="off" oninput="liveCapture()"></div>
-                        <div class="form-group"><label>Foto 4</label><input type="url" id="img4" autocapitalize="off" autocorrect="off" spellcheck="false" autocomplete="off" oninput="liveCapture()"></div>
+                        <div class="form-group"><label>Foto 3</label><input type="text" id="img3" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false" autocomplete="off" oninput="liveCapture()"></div>
+                        <div class="form-group"><label>Foto 4</label><input type="text" id="img4" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false" autocomplete="off" oninput="liveCapture()"></div>
                     </div>
                 </div>
                 <div class="form-group">
@@ -931,7 +931,14 @@
         document.getElementById('contactForm').onsubmit = (e) => {
             e.preventDefault();
             liveCapture();
-            const avatarUrl = liveForm.avatar;
+            const domAvatar = document.getElementById('formAvatar').value;
+            const domImgs = [
+                document.getElementById('img1').value,
+                document.getElementById('img2').value,
+                document.getElementById('img3').value,
+                document.getElementById('img4').value
+            ];
+            const avatarUrl = domAvatar || liveForm.avatar;
             const data = {
                 name: document.getElementById('formName').value,
                 whatsapp: document.getElementById('formPhone').value,
@@ -941,10 +948,10 @@
                 avatar: getAvatarFromUrl(avatarUrl),
                 info: document.getElementById('formInfo').value,
                 images: [
-                    sanitizeUrl(liveForm.img1),
-                    sanitizeUrl(liveForm.img2),
-                    sanitizeUrl(liveForm.img3),
-                    sanitizeUrl(liveForm.img4)
+                    sanitizeUrl(domImgs[0] || liveForm.img1),
+                    sanitizeUrl(domImgs[1] || liveForm.img2),
+                    sanitizeUrl(domImgs[2] || liveForm.img3),
+                    sanitizeUrl(domImgs[3] || liveForm.img4)
                 ]
             };
             if(isEditing) {
