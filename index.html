@@ -152,7 +152,45 @@
         .contact-card.active { background: var(--green); color: var(--black); border-color: var(--green); }
         .contact-top { display: flex; align-items: center; gap: 12px; }
         .avatar { width: 44px; height: 44px; border-radius: 14px; object-fit: cover; background: var(--gray); border: 1px solid var(--green-dark); }
-        .contact-name { font-size: 16px; font-weight: 400; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .contact-name { font-size: 16px; font-weight: 400; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-grow: 1; }
+        .contact-phone { font-size: 14px; color: var(--green-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .contact-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex-grow: 1; }
+        .contact-mark {
+            width: 20px; height: 20px; flex-shrink: 0; cursor: pointer;
+            accent-color: var(--orange); border-radius: 6px;
+        }
+
+        /* Sinalização de contato novo */
+        @keyframes novoPulse {
+            0%, 100% { box-shadow: var(--orange-glow); }
+            50% { box-shadow: 0 0 16px rgba(255, 140, 0, 0.8), 0 0 32px rgba(255, 140, 0, 0.5); }
+        }
+        .contact-card.is-new {
+            border-color: var(--orange);
+            animation: novoPulse 1.4s ease-in-out infinite;
+        }
+        .contact-card.is-new:hover { border-color: var(--orange); }
+        .badge-novo {
+            font-family: 'Press Start 2P', monospace; font-size: 7px;
+            background: var(--orange); color: var(--black);
+            padding: 4px 6px; border-radius: 8px; cursor: pointer;
+            flex-shrink: 0; border: none; line-height: 1; white-space: nowrap;
+        }
+        .badge-novo:hover { background: var(--white); }
+
+        /* Barra de exclusão em lote */
+        #batchBar {
+            display: none; align-items: center; justify-content: space-between;
+            gap: 8px; margin-bottom: 16px; padding: 10px 12px;
+            background: rgba(60, 0, 0, 0.4); border: 2px solid #ff4444;
+            border-radius: 16px;
+        }
+        #batchBar.visible { display: flex; }
+        #batchBar .batch-count {
+            font-family: 'Press Start 2P', monospace; font-size: 9px;
+            color: #ff4444; white-space: nowrap;
+        }
+        #batchBar .action-btn { padding: 8px 12px; font-size: 8px; }
 
         /* Main View */
         .main-view {
@@ -452,6 +490,11 @@
             <select id="locationFilter" class="location-filter" onchange="renderList()">
                 <option value="">Todas as Localidades</option>
             </select>
+
+            <div id="batchBar">
+                <span class="batch-count" id="batchCount">0 MARCADOS</span>
+                <button type="button" class="action-btn btn-delete" onclick="deleteMarked()">EXCLUIR</button>
+            </div>
 
             <div class="contact-list" id="contactList"></div>
         </aside>
@@ -754,11 +797,70 @@
                 locations.map(l => `<option value="${l}" ${l === selected ? 'selected' : ''}>${l}</option>`).join('');
         }
 
+        // --- Agrupamento: contatos com o mesmo número ficam em sequência ---
+        function phoneKey(c) {
+            const digits = (c.whatsapp || '').replace(/\D/g, '');
+            return digits || '__sem_tel_' + c.id;
+        }
+
+        function groupContactsByPhone(list) {
+            const order = [];
+            const groups = new Map();
+            list.forEach(c => {
+                const key = phoneKey(c);
+                if (!groups.has(key)) { groups.set(key, []); order.push(key); }
+                groups.get(key).push(c);
+            });
+            return order.reduce((acc, key) => acc.concat(groups.get(key)), []);
+        }
+
+        // --- Sinalização de contatos novos ---
+        function markAsChecked(id) {
+            const c = contacts.find(c => c.id === id);
+            if (!c) return;
+            c.isNew = false;
+            save();
+            renderList();
+        }
+
+        // --- Marcação em lote para exclusão ---
+        let markedForDelete = new Set();
+
+        function toggleMark(id, checked) {
+            if (checked) markedForDelete.add(id);
+            else markedForDelete.delete(id);
+            updateBatchBar();
+        }
+
+        function updateBatchBar() {
+            markedForDelete = new Set([...markedForDelete].filter(id => contacts.some(c => c.id === id)));
+            const bar = document.getElementById('batchBar');
+            const n = markedForDelete.size;
+            bar.classList.toggle('visible', n > 0);
+            document.getElementById('batchCount').textContent = n + ' MARCADO' + (n === 1 ? '' : 'S');
+        }
+
+        function deleteMarked() {
+            if (markedForDelete.size === 0) return;
+            const n = markedForDelete.size;
+            if (!confirm('Excluir ' + n + ' contato(s) marcado(s)?')) return;
+            contacts = contacts.filter(c => !markedForDelete.has(c.id));
+            markedForDelete.clear();
+            if (selectedId && !contacts.some(c => c.id === selectedId)) {
+                selectedId = null;
+                document.getElementById('contactDetails').style.display = 'none';
+                document.getElementById('noSelection').style.display = 'flex';
+                document.getElementById('app').classList.remove('viewing-detail');
+            }
+            save();
+            renderList();
+        }
+
         function renderList() {
             const q = document.getElementById('searchInput').value.toLowerCase();
             const loc = document.getElementById('locationFilter').value;
 
-            const list = contacts.filter(c => {
+            const list = groupContactsByPhone(contacts).filter(c => {
                 if (c.hidden && !crmUnlocked) return false;
                 const matchesName = c.name.toLowerCase().includes(q);
                 const matchesLoc = loc === "" || c.local === loc;
@@ -766,15 +868,22 @@
             });
 
             document.getElementById('contactList').innerHTML = list.map(c => `
-                <div class="contact-card ${selectedId === c.id ? 'active' : ''}" onclick="selectContact('${c.id}')">
+                <div class="contact-card ${selectedId === c.id ? 'active' : ''} ${c.isNew ? 'is-new' : ''}" onclick="selectContact('${c.id}')">
                     <div class="contact-top">
+                        <input type="checkbox" class="contact-mark" ${markedForDelete.has(c.id) ? 'checked' : ''} title="Marcar para exclusão" onclick="event.stopPropagation()" onchange="toggleMark('${c.id}', this.checked)">
                         <div style="width: 44px; height: 44px; border-radius: 14px; background: #000; border: 1px solid var(--green-dark); display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0;">
                             <img src="${c.avatar || DEFAULT_AVATAR}" class="avatar" onerror="console.error('Avatar failed:', this.src); this.onerror=null; this.src='${DEFAULT_AVATAR}';">
                         </div>
-                        <div class="contact-name">${c.name}</div>
+                        <div class="contact-body">
+                            <div class="contact-name">${c.name}</div>
+                            <div class="contact-phone">${c.whatsapp || '---'}</div>
+                        </div>
+                        ${c.isNew ? `<button type="button" class="badge-novo" title="Marcar como conferido" onclick="event.stopPropagation(); markAsChecked('${c.id}')">NOVO</button>` : ''}
                     </div>
                 </div>
             `).join('');
+
+            updateBatchBar();
         }
 
         function selectContact(id) {
@@ -910,6 +1019,7 @@
                         if (!c.images) c.images = ['', '', '', ''];
                         if (!c.info) c.info = '';
                         if (!c.avatar) c.avatar = '';
+                        c.isNew = false;
                     });
                     contacts = contacts.concat(imported);
                     crmUnlocked = false;
@@ -956,9 +1066,9 @@
             };
             if(isEditing) {
                 const idx = contacts.findIndex(c => c.id === selectedId);
-                contacts[idx] = { ...contacts[idx], ...data };
+                contacts[idx] = { ...contacts[idx], ...data, isNew: false };
             } else {
-                const newC = { ...data, id: Date.now().toString() };
+                const newC = { ...data, id: Date.now().toString(), isNew: true };
                 contacts.unshift(newC);
                 selectedId = newC.id;
             }
@@ -974,7 +1084,7 @@
             if (!raw.trim()) return alert('Cole um texto primeiro.');
 
             const blocks = raw.split(/\n\s*\n|\n- /);
-            let added = 0;
+            const novos = [];
 
             blocks.forEach(block => {
                 const c = extractContactFromText(block);
@@ -983,17 +1093,19 @@
                     c.avatar = c.avatar || DEFAULT_AVATAR;
                     c.images = ['', '', '', ''];
                     c.info = c.info || '';
-                    contacts.unshift(c);
-                    added++;
+                    c.isNew = true;
+                    novos.push(c);
                 }
             });
 
             document.getElementById('freeTextInput').value = '';
 
-            if (added > 0) {
+            if (novos.length > 0) {
+                contacts = novos.concat(contacts);
                 save();
                 renderList();
-                alert(added + ' contato(s) extraido(s) com sucesso!');
+                document.querySelector('.data-sidebar').scrollTop = 0;
+                alert(novos.length + ' contato(s) extraido(s) com sucesso!\n\nOs números repetidos ficaram juntos na lista e os novos estão sinalizados como NOVO.');
             } else {
                 alert('Nenhum contato encontrado no texto.');
             }
@@ -1009,8 +1121,8 @@
             const urlMatch = t.match(/https?:\/\/\S+|www\.\S+/);
             if (urlMatch) result.site = urlMatch[0];
 
-            // Phone (padrão BR: 11 9xxxx-xxxx ou 11999998888)
-            const phoneMatch = t.match(/(?:\d{2}\s?)?9?\d{4}[-.\s]?\d{4}/);
+            // Phone (padrão BR: 11 9xxxx-xxxx, (11) 9xxxx-xxxx ou 11999998888)
+            const phoneMatch = t.match(/(?:\(\d{2}\)\s?|\d{2}\s?)?9?\d{4}[-.\s]?\d{4}/);
             if (phoneMatch) result.whatsapp = phoneMatch[0].replace(/\s/g, '');
 
             // Localização (palavras-chave)
